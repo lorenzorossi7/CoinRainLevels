@@ -22,31 +22,53 @@ class Robot:
     def draw(self):
         window.blit(self.image, (self.x, self.y))
 
-
-class Coin:
-    def __init__(self,speed):
+class FallingObject:
+    def __init__(self,speed,object_name):
+        self.image = pygame.image.load(object_name)
         self.speed = speed
-        self.image = pygame.image.load("coin.png")
         self.set_random_coords()
-    
-    def move(self):
-        self.x_y[1] += self.speed
 
     def set_random_coords(self):
         self.x_y=[random.randrange(0,window.get_width()-self.image.get_width()),-self.image.get_height()-random.randrange(0,window.get_height())]
 
+    def move(self):
+        self.x_y[1] += self.speed
+
     def draw(self):
         window.blit(self.image, (self.x_y[0], self.x_y[1]))
 
+    def is_caught_by(self,robot: Robot):
+        def is_above(robot: Robot):
+            is_below_robot = self.x_y[1]>robot.y+robot.image.get_height()
+            is_left_side_above_robot = self.x_y[0]>=robot.x and self.x_y[0]<=robot.x+robot.image.get_width()
+            is_right_side_above_robot = self.x_y[0]+self.image.get_width()>=robot.x and self.x_y[0]+self.image.get_width()<=robot.x+robot.image.get_width()
+            is_entirely_above_robot = self.x_y[0]<=robot.x and self.x_y[0]+self.image.get_width()>=robot.x+robot.image.get_width()
+            is_above_robot = is_right_side_above_robot or is_left_side_above_robot or is_entirely_above_robot
+            return (not is_below_robot) and is_above_robot
+                
+        def is_next_to(robot: Robot):
+            return (self.x_y[1]>=robot.y or self.x_y[1]+self.image.get_height()>=robot.y)
+    
+        return is_above(robot) and is_next_to(robot)
+
+
+class Coin(FallingObject):
+    def __init__(self,speed):
+        super().__init__(speed,"coin.png")
+
+class Monster(FallingObject):
+    def __init__(self,speed):
+        super().__init__(speed,"monster.png")
 
 class CoinRain:
-    def __init__(self, coin_speed, robot_speed, num_coins, points_to_win):
+    def __init__(self, robot_speed, num_coins, coin_speed, num_monsters, monster_speed, points_to_win):
         pygame.init()
 
         self.robot=Robot(robot_speed)
-        self.coins=[Coin(coin_speed) for n in range(num_coins)]
-
         self.num_coins = num_coins
+        self.coins=[Coin(coin_speed) for n in range(self.num_coins)]
+        self.num_monsters = num_monsters
+        self.monsters=[Monster(monster_speed) for n in range(self.num_monsters)]
         self.points_to_win = points_to_win
 
         pygame.display.set_caption('Rain of Coins')
@@ -95,6 +117,7 @@ class CoinRain:
     def move_objects(self):
         self.move_robot()
         self.move_coins()
+        self.move_monsters()
     
     def move_robot(self):
         if self.is_won or self.is_lost:
@@ -107,17 +130,6 @@ class CoinRain:
             self.robot.move_left()
 
     def move_coins(self):
-        def is_under_robot(coin):
-            return (self.robot.x>=coin.x_y[0] and self.robot.x<=coin.x_y[0]+coin.image.get_width()) or \
-                (self.robot.x+self.robot.image.get_width()>=coin.x_y[0] and self.robot.x+self.robot.image.get_width()<=coin.x_y[0]+coin.image.get_width()) or \
-                    (coin.x_y[0]>=self.robot.x and coin.x_y[0]<=self.robot.x+self.robot.image.get_width()) or \
-                (coin.x_y[0]+coin.image.get_width()>=self.robot.x and coin.x_y[0]+coin.image.get_width()<=self.robot.x+self.robot.image.get_width())
-
-        def is_nextto_robot(coin):
-            return (coin.x_y[1]>=self.robot.y or coin.x_y[1]+coin.image.get_height()>=self.robot.y)
-
-        def is_caughtby_robot(coin):
-            return is_under_robot(coin) and is_nextto_robot(coin)
 
         if self.is_won or self.is_lost:
             return
@@ -128,9 +140,21 @@ class CoinRain:
                 
             if coin.x_y[1]>window_height:
                 self.is_lost=True
-            elif is_caughtby_robot(coin):
+            elif coin.is_caught_by(self.robot):
                 self.points+=1
                 coin.set_random_coords()
+
+    def move_monsters(self):
+        if self.is_won or self.is_lost:
+            return
+
+        for n in range(self.num_monsters):
+            monster=self.monsters[n]
+            monster.move()
+                
+            if monster.is_caught_by(self.robot):
+                self.points-=1
+                monster.set_random_coords()
 
     def draw(self):
         def draw_end_message():
@@ -145,20 +169,22 @@ class CoinRain:
             counter = self.game_font.render(f"Points: {self.points} ({self.points_to_win-self.points} to win)", True, (255, 0, 0))
             window.blit(counter, (window.get_width()-1.1*counter.get_width(), counter.get_height()))
         
-        window.fill((0, 0, 0))
-
+        window.fill((0, 0, 255))
         self.robot.draw()
         for coin in self.coins:
             coin.draw()
+        for monster in self.monsters:
+            monster.draw()
         draw_counter()
         if self.is_won or self.is_lost:
             draw_end_message()
-
         pygame.display.flip()
 
 if __name__ == "__main__":
-    coin_speed=1
     robot_speed=2
     num_coins=2
+    coin_speed=1
+    num_monsters=2
+    monster_speed=1
     points_to_win=3
-    CoinRain(coin_speed, robot_speed, num_coins, points_to_win)
+    CoinRain(robot_speed, num_coins, coin_speed, num_monsters, monster_speed, points_to_win)
