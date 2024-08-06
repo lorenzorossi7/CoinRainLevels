@@ -9,3 +9,4 @@ Simple game for the completion of the Advanced Course in Programming with Python
 - If you reach the required number of points (displayed on the top right), you win.
 - Also monsters rain from the sky. The robot must avoid these. Each monster removes 1 point.
 - If you miss a coin, you lose.
+- You must win 5 levels to win the whole game.
